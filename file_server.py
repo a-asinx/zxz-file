@@ -19,7 +19,7 @@ def save_uploaded_file(uploaded_file, target_dir):
         return False, str(e)
 
 def main():
-    st.title("📂 高级文件传输站")
+    st.title("📂 zxz文件传输")
     
     # === 侧边栏：设置保存位置 ===
     st.sidebar.header("⚙️ 设置")
@@ -103,4 +103,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
