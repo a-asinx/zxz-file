@@ -2,7 +2,7 @@ import streamlit as st
 import os
 
 # --- 页面设置 ---
-st.set_page_config(page_title="局域网文件传输助手", page_icon="📂")
+st.set_page_config(page_title="zxz-文件传输助手", page_icon="📂")
 
 def save_uploaded_file(uploaded_file, target_dir):
     """保存文件到指定目录"""
@@ -28,7 +28,7 @@ def main():
     default_path = os.path.join(os.getcwd(), "shared_files")
     
     # 让用户输入保存路径
-    save_path = st.sidebar.text_input("文件保存路径 (电脑端的绝对路径)", value=default_path)
+    save_path = st.sidebar.text_input("文件保存路径", value=default_path)
     
     # 检查路径状态
     if os.path.exists(save_path):
@@ -103,3 +103,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
