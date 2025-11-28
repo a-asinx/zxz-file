@@ -1,88 +1,105 @@
 import streamlit as st
 import os
-import shutil
 
-# --- 页面配置 ---
-st.set_page_config(page_title="云端文件中转站", page_icon="☁️", layout="centered")
+# --- 页面设置 ---
+st.set_page_config(page_title="局域网文件传输助手", page_icon="📂")
 
-# --- 核心设置 ---
-# 在云端，只能保存到当前项目目录下的文件夹中
-UPLOAD_DIR = "temp_storage"
-
-# 确保目录存在
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
-
-# --- 功能函数 ---
-def save_uploaded_file(uploaded_file):
+def save_uploaded_file(uploaded_file, target_dir):
+    """保存文件到指定目录"""
     try:
-        file_path = os.path.join(UPLOAD_DIR, uploaded_file.name)
+        # 确保目录存在，不存在则创建
+        if not os.path.exists(target_dir):
+            os.makedirs(target_dir)
+            
+        file_path = os.path.join(target_dir, uploaded_file.name)
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-        return True
+        return True, file_path
     except Exception as e:
-        return False
+        return False, str(e)
 
-def get_files():
-    if not os.path.exists(UPLOAD_DIR):
-        return []
-    files = os.listdir(UPLOAD_DIR)
-    # 过滤掉隐藏文件
-    files = [f for f in files if not f.startswith('.')]
-    # 按时间倒序排列（最新的在最上面）
-    files.sort(key=lambda x: os.path.getmtime(os.path.join(UPLOAD_DIR, x)), reverse=True)
-    return files
-
-# --- 主程序 ---
 def main():
-    st.title("☁️ 云端文件中转站")
-    st.info("⚠️ 注意：部署在免费云端时，文件是临时的。长时间不访问或代码更新后，文件会被清空。")
+    st.title("📂 高级文件传输站")
+    
+    # === 侧边栏：设置保存位置 ===
+    st.sidebar.header("⚙️ 设置")
+    
+    # 获取当前代码运行的目录作为默认值
+    default_path = os.path.join(os.getcwd(), "shared_files")
+    
+    # 让用户输入保存路径
+    save_path = st.sidebar.text_input("文件保存路径 (电脑端的绝对路径)", value=default_path)
+    
+    # 检查路径状态
+    if os.path.exists(save_path):
+        st.sidebar.success(f"✅ 路径有效")
+    else:
+        st.sidebar.warning(f"⚠️ 路径不存在，上传时将自动创建")
 
-    tab1, tab2 = st.tabs(["📤 上传 (手机/电脑)", "📥 下载列表"])
+    # === 主界面 ===
+    tab1, tab2 = st.tabs(["📤 上传文件", "📂 查看文件列表"])
 
-    # === 上传部分 ===
+    # --- 上传功能 ---
     with tab1:
-        uploaded_files = st.file_uploader("点击上传文件", accept_multiple_files=True)
+        st.header("上传文件")
+        st.info(f"文件将保存到: `{save_path}`")
         
-        if uploaded_files:
-            if st.button("确认上传"):
-                progress_bar = st.progress(0)
-                for i, file in enumerate(uploaded_files):
-                    save_uploaded_file(file)
-                    progress_bar.progress((i + 1) / len(uploaded_files))
-                
-                st.success(f"成功上传 {len(uploaded_files)} 个文件！请切换到“下载”标签页查看。")
-
-    # === 下载部分 ===
-    with tab2:
-        if st.button("🔄 刷新文件列表"):
-            st.rerun()
+        uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True)
+        
+        if uploaded_files and st.button("开始上传"):
+            progress_bar = st.progress(0)
+            success_count = 0
             
-        files = get_files()
+            for idx, file in enumerate(uploaded_files):
+                success, msg = save_uploaded_file(file, save_path)
+                if success:
+                    success_count += 1
+                else:
+                    st.error(f"文件 {file.name} 保存失败: {msg}")
+                progress_bar.progress((idx + 1) / len(uploaded_files))
+            
+            if success_count == len(uploaded_files):
+                st.success(f"🎉 全部 {success_count} 个文件已保存到电脑指定目录！")
+            else:
+                st.warning(f"完成，但部分文件失败。成功: {success_count}/{len(uploaded_files)}")
+
+    # --- 查看/下载功能 ---
+    with tab2:
+        st.header("当前目录文件")
         
-        if not files:
-            st.write("📂 暂无文件，快去上传吧。")
-        else:
-            st.write(f"共 {len(files)} 个文件：")
-            for filename in files:
-                filepath = os.path.join(UPLOAD_DIR, filename)
-                
-                # 布局：文件名 + 下载按钮
-                col1, col2 = st.columns([3, 1])
-                
-                with col1:
-                    st.text(f"📄 {filename}")
+        # 刷新按钮
+        if st.button("🔄 刷新列表"):
+            st.rerun()
+
+        # 检查目录是否存在
+        if os.path.exists(save_path):
+            files = os.listdir(save_path)
+            files = [f for f in files if not f.startswith('.')] # 忽略隐藏文件
+            
+            if not files:
+                st.write("该目录下暂无文件。")
+            else:
+                st.write(f"目录 `{save_path}` 下的文件：")
+                for filename in files:
+                    file_p = os.path.join(save_path, filename)
                     
-                with col2:
-                    with open(filepath, "rb") as f:
-                        st.download_button(
-                            label="⬇️ 下载",
-                            data=f,
-                            file_name=filename,
-                            mime="application/octet-stream",
-                            key=f"dl_{filename}"
-                        )
-                st.divider()
+                    # 简单判断是否是文件（排除子文件夹）
+                    if os.path.isfile(file_p):
+                        col1, col2 = st.columns([0.8, 0.2])
+                        with col1:
+                            st.text(f"📄 {filename}")
+                        with col2:
+                            # 提供下载功能
+                            with open(file_p, "rb") as f:
+                                st.download_button(
+                                    label="⬇️ 下载",
+                                    data=f,
+                                    file_name=filename,
+                                    key=filename
+                                )
+                        st.divider()
+        else:
+            st.error("指定的目录不存在，请先上传文件或检查路径。")
 
 if __name__ == "__main__":
     main()
