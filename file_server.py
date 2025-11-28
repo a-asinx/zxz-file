@@ -1,58 +1,109 @@
 import streamlit as st
 import os
+import shutil
 
-# 1. 基础配置
-st.set_page_config(page_title="局域网文件中转站", page_icon="📂", layout="centered")
+# --- 配置 ---
+# 设置保存文件的本地目录
+UPLOAD_DIR = "shared_files"
 
-# 2. 定义电脑上保存文件的文件夹（就在脚本同级目录下）
-UPLOAD_FOLDER = 'shared_files'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+# 页面基础设置
+st.set_page_config(page_title="局域网文件传输助手", page_icon="📂", layout="centered")
 
-st.title("📂 手机 <-> 电脑 文件传输")
-st.info(f"文件将永久保存在你电脑的文件夹: {os.path.abspath(UPLOAD_FOLDER)}")
+# --- 功能函数 ---
+def init_storage():
+    """如果目录不存在，则创建"""
+    if not os.path.exists(UPLOAD_DIR):
+        os.makedirs(UPLOAD_DIR)
 
-# --- 功能区1：上传 (手机端操作) ---
-st.subheader("⬆️ 上传文件 (手机/电脑)")
-uploaded_files = st.file_uploader("选择文件（支持多文件）", accept_multiple_files=True)
-
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        # 拼接保存路径
-        file_path = os.path.join(UPLOAD_FOLDER, uploaded_file.name)
-        # 写入硬盘
+def save_uploaded_file(uploaded_file):
+    """保存上传的文件到本地硬盘"""
+    try:
+        file_path = os.path.join(UPLOAD_DIR, uploaded_file.name)
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-        st.success(f"✅ {uploaded_file.name} 已保存到电脑硬盘！")
+        return True
+    except Exception as e:
+        st.error(f"保存失败: {e}")
+        return False
 
-# --- 功能区2：文件列表 (电脑/手机端查看) ---
-st.divider()
-st.subheader("⬇️ 现有文件列表")
+def get_file_list():
+    """获取文件列表，按修改时间排序"""
+    files = os.listdir(UPLOAD_DIR)
+    # 获取完整路径并按时间排序 (最新的在前面)
+    files = [f for f in files if not f.startswith('.')] # 忽略隐藏文件
+    files.sort(key=lambda x: os.path.getmtime(os.path.join(UPLOAD_DIR, x)), reverse=True)
+    return files
 
-# 强制刷新按钮（有时候文件传完了列表没更新，点一下这个）
-if st.button("🔄 刷新文件列表"):
-    st.rerun()
+# --- 主程序 ---
+def main():
+    init_storage()
+    
+    st.title("📂 简易文件传输站")
+    st.caption("手机上传 -> 电脑下载 | 电脑上传 -> 手机下载")
 
-# 读取文件夹里的真实文件
-files = os.listdir(UPLOAD_FOLDER)
+    # 使用 Tab 分隔功能，界面更整洁
+    tab1, tab2 = st.tabs(["📤 上传文件", "📥 下载/查看文件"])
 
-if not files:
-    st.write("📂 文件夹是空的，快用手机上传点东西吧。")
-else:
-    for filename in files:
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        if os.path.isfile(file_path):
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(f"📄 **{filename}**")
-            with col2:
-                # 提供下载功能
-                with open(file_path, "rb") as f:
-                    st.download_button(
-                        label="下载",
-                        data=f,
-                        file_name=filename,
-                        mime="application/octet-stream",
-                        key=filename
-                    )
-            st.divider()
+    # === Tab 1: 上传区域 ===
+    with tab1:
+        st.header("上传文件")
+        uploaded_files = st.file_uploader("选择文件 (支持多文件)", accept_multiple_files=True)
+        
+        if uploaded_files:
+            if st.button("确认保存到服务器"):
+                progress_bar = st.progress(0)
+                for idx, file in enumerate(uploaded_files):
+                    if save_uploaded_file(file):
+                        # 更新进度条
+                        progress_bar.progress((idx + 1) / len(uploaded_files))
+                
+                st.success(f"成功上传 {len(uploaded_files)} 个文件！")
+                st.info("请切换到“下载”标签页查看。")
+
+    # === Tab 2: 下载区域 ===
+    with tab2:
+        st.header("文件库")
+        
+        # 添加刷新按钮，因为Streamlit不会自动检测文件夹变化
+        if st.button("🔄 刷新列表"):
+            st.rerun()
+
+        files = get_file_list()
+
+        if not files:
+            st.info("暂无文件，请先去上传。")
+        else:
+            st.write(f"共 {len(files)} 个文件：")
+            
+            # 使用列表展示文件
+            for filename in files:
+                file_path = os.path.join(UPLOAD_DIR, filename)
+                col1, col2, col3 = st.columns([6, 2, 2])
+                
+                with col1:
+                    # 显示文件名和大小
+                    file_size = os.path.getsize(file_path) / 1024 / 1024 # MB
+                    st.text(f"📄 {filename} ({file_size:.2f} MB)")
+                
+                with col2:
+                    # 读取文件用于下载
+                    with open(file_path, "rb") as f:
+                        file_bytes = f.read()
+                        st.download_button(
+                            label="⬇️ 下载",
+                            data=file_bytes,
+                            file_name=filename,
+                            mime="application/octet-stream",
+                            key=f"dl_{filename}"
+                        )
+                
+                with col3:
+                    # 删除功能
+                    if st.button("🗑️ 删除", key=f"del_{filename}"):
+                        os.remove(file_path)
+                        st.rerun()
+                
+                st.divider()
+
+if __name__ == "__main__":
+    main()
