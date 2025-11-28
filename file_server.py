@@ -26,7 +26,7 @@ def main():
     
     # # 获取当前代码运行的目录作为默认值
     # default_path = os.path.join(os.getcwd(), "shared_files")
-    default_path = os.path.join(os.getcwd(), "zxz")
+    default_path = os.path.join( "zxz")
     
     # 让用户输入保存路径
     save_path = st.sidebar.text_input("文件保存路径", value=default_path)
@@ -104,6 +104,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
