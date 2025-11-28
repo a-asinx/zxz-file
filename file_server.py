@@ -1,13 +1,10 @@
 import streamlit as st
 import os
 
-# --- 页面设置 ---
 st.set_page_config(page_title="zxz-文件传输助手", page_icon="📂")
 
 def save_uploaded_file(uploaded_file, target_dir):
-    """保存文件到指定目录"""
     try:
-        # 确保目录存在，不存在则创建
         if not os.path.exists(target_dir):
             os.makedirs(target_dir)
             
@@ -21,26 +18,20 @@ def save_uploaded_file(uploaded_file, target_dir):
 def main():
     st.title("📂 zxz文件传输")
     
-    # === 侧边栏：设置保存位置 ===
     st.sidebar.header("⚙️ 设置")
     
-    # # 获取当前代码运行的目录作为默认值
     # default_path = os.path.join(os.getcwd(), "shared_files")
     default_path = os.path.join( "zxz")
     
-    # 让用户输入保存路径
     save_path = st.sidebar.text_input("文件保存路径", value=default_path)
     
-    # 检查路径状态
     if os.path.exists(save_path):
         st.sidebar.success(f"✅ 路径有效")
     else:
         st.sidebar.warning(f"⚠️ 路径不存在，上传时将自动创建")
 
-    # === 主界面 ===
     tab1, tab2 = st.tabs(["📤 上传文件", "📂 查看文件列表"])
 
-    # --- 上传功能 ---
     with tab1:
         st.header("上传文件")
         st.info(f"文件将保存到: `{save_path}`")
@@ -64,7 +55,6 @@ def main():
             else:
                 st.warning(f"完成，但部分文件失败。成功: {success_count}/{len(uploaded_files)}")
 
-    # --- 查看/下载功能 ---
     with tab2:
         st.header("当前目录文件")
         
@@ -104,6 +94,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
